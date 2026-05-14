@@ -1,0 +1,8 @@
+package piers:harness;
+
+world guest {
+    export handle: func(input: string) -> string;
+    export propose-update: func(spec: string) -> string;
+    export snapshot: func() -> string;
+    export restore: func(snapshot: string);
+}

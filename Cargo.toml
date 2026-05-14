@@ -1,0 +1,13 @@
+[package]
+name = "piers"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = ["guest"]
+resolver = "3"
+
+[dependencies]
+anyhow = "1.0.100"
+wasmtime = { version = "44.0.1", features = ["component-model"] }
+wasmtime-wasi = "44.0.1"
