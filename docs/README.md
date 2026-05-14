@@ -10,6 +10,7 @@ experiment.
 
 ## Lessons From Pi
 
+- [Pi Research Process](pi-research-process.md)
 - [Pi Harness Notes](pi-harness-notes.md)
 - [Lessons From Pi's Issue And Commit History](pi-lessons.md)
 - [Pi History Timeline Notes](pi-history-timeline.md)
@@ -20,6 +21,14 @@ experiment.
 
 - [Host And Guest Boundary](host-guest-boundary.md)
 - [Reload Lifecycle](reload-lifecycle.md)
+- [Snapshot Format](snapshot-format.md)
 - [Session State Machine](session-state-machine.md)
 - [Provider Stream Protocol](provider-stream-protocol.md)
+- [Deterministic Replay](deterministic-replay.md)
+- [Rollback Testing](rollback-testing.md)
+- [Tool Policy](tool-policy.md)
+- [Extension Runtime](extension-runtime.md)
+- [Compaction Invariants](compaction-invariants.md)
+- [Core And UI Boundary](core-ui-boundary.md)
+- [Platform And Terminal Risk](platform-terminal-risk.md)
 - [Notes To Future Self](future-self.md)

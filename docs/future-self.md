@@ -14,7 +14,7 @@ contracts exist.
 
 These five pieces protect the core self-rewriting idea.
 
-## Next Docs To Write
+## Design Notes Written
 
 - `snapshot-format.md`: versioned guest state, migration hooks, restore errors
 - `tool-policy.md`: path rules, edit semantics, exec cancellation, telemetry
@@ -24,6 +24,16 @@ These five pieces protect the core self-rewriting idea.
 - `deterministic-replay.md`: event fixtures, fake providers, patch replay
 - `rollback-testing.md`: staged reload failures and promotion checks
 - `core-ui-boundary.md`: REPL, JSON, RPC, TUI, browser, and worker clients
+- `pi-research-process.md`: how Pi history is being translated into Piers
+  design constraints
+
+## Next Docs To Write
+
+- `event-log-format.md`: append-only entries, IDs, parent links, storage
+- `guest-manifest.md`: commands, tools, hooks, resources, conflicts
+- `provider-adapter-fixtures.md`: fixture layout and adapter acceptance tests
+- `host-capabilities.md`: handles, permissions, revocation, and rebinding
+- `release-and-install.md`: single-binary distribution and guest cache policy
 
 ## Design Biases
 
