@@ -1,4 +1,9 @@
-//! Line-oriented entry point for the Piers harness PoC.
+//! Line-oriented entry point for the Piers harness proof of concept.
+//!
+//! The binary keeps the interactive shell intentionally small. Command parsing
+//! stays here, while guest lifecycle, rebuilds, and promotion live in
+//! [`Harness`]. This keeps the REPL useful for exercising the reload boundary
+//! without making terminal UI concerns part of the runtime experiment.
 
 use std::io::{self, Write};
 
@@ -52,6 +57,10 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+/// Installs process-wide tracing with `RUST_LOG` support.
+///
+/// The default filter is `warn` so ordinary REPL output stays readable unless a
+/// caller opts into host diagnostics.
 fn init_tracing() {
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn"));
     tracing_subscriber::fmt().with_env_filter(filter).init();
