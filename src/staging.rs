@@ -1,4 +1,9 @@
 //! Filesystem staging and promotion for generated guest updates.
+//!
+//! Generated guest source is never written directly over the live source. A
+//! reload attempt first gets its own minimal workspace under `.piers/staged`,
+//! builds there, and only promotes source plus artifact after the harness has
+//! instantiated and smoke-tested the staged component.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -16,6 +21,9 @@ pub const GUEST_ARTIFACT: &str = "target/wasm32-wasip2/debug/piers_guest.wasm";
 const STAGING_DIR: &str = ".piers/staged";
 
 /// A generated guest candidate staged outside the live source tree.
+///
+/// The staged root is disposable. The live workspace observes only the source
+/// and artifact promoted after a successful build and smoke test.
 pub struct StagedGuest {
     /// Root of the temporary workspace used for this reload attempt.
     pub root: PathBuf,
@@ -25,6 +33,11 @@ pub struct StagedGuest {
 
 impl StagedGuest {
     /// Creates a staged workspace containing the generated guest source.
+    ///
+    /// The staged workspace copies the host `src/` directory as well as the WIT
+    /// package because the workspace manifest points at both crates. The copy is
+    /// intentionally small, but complete enough for Cargo to build the guest
+    /// crate as if it were in the live checkout.
     pub fn create(root: &Path, source: &str, generation: u64) -> Result<Self> {
         validate_guest_source(source)?;
 
@@ -68,6 +81,9 @@ pub fn ensure_guest_artifact(root: &Path) -> Result<()> {
 }
 
 /// Builds the guest crate in the provided workspace root.
+///
+/// This shells out to Cargo rather than linking through Cargo internals. That
+/// keeps the PoC small and makes the build contract visible in error messages.
 pub fn build_guest_in(root: &Path) -> Result<()> {
     info!(root = %root.display(), "building guest");
     let output = Command::new("cargo")
@@ -91,6 +107,9 @@ pub fn build_guest_in(root: &Path) -> Result<()> {
 }
 
 /// Checks whether generated source still looks like the expected guest component.
+///
+/// This is a structural sanity check, not a Rust parser or sandbox. The build
+/// and smoke test remain the authoritative validation steps.
 pub fn validate_guest_source(source: &str) -> Result<()> {
     if !source.contains("wit_bindgen::generate!") || !source.contains("export!(PiersGuest);") {
         bail!("guest update does not look like a piers guest component");
@@ -99,6 +118,9 @@ pub fn validate_guest_source(source: &str) -> Result<()> {
 }
 
 /// Promotes generated source into the live guest source path.
+///
+/// The caller is responsible for building and smoke-testing the same source in
+/// a staging workspace before calling this function.
 pub fn promote_guest_source(root: &Path, source: &str) -> Result<()> {
     validate_guest_source(source)?;
 
@@ -109,6 +131,9 @@ pub fn promote_guest_source(root: &Path, source: &str) -> Result<()> {
 }
 
 /// Promotes a staged Wasm artifact into the live artifact path.
+///
+/// The artifact is copied rather than moved so the staging directory remains
+/// available for inspection after a reload attempt.
 pub fn promote_guest_artifact(root: &Path, staged_artifact: &Path) -> Result<()> {
     let live_artifact = root.join(GUEST_ARTIFACT);
     let parent = live_artifact
@@ -125,6 +150,7 @@ pub fn promote_guest_artifact(root: &Path, staged_artifact: &Path) -> Result<()>
     Ok(())
 }
 
+/// Refuses writes whose parent directory resolves outside the workspace root.
 fn ensure_path_inside_repo(root: &Path, path: &Path) -> Result<()> {
     let canonical_root = root.canonicalize().context("canonicalize repo root")?;
     let parent = path
@@ -139,6 +165,7 @@ fn ensure_path_inside_repo(root: &Path, path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Copies one workspace-relative file into a staged workspace.
 fn copy_file(source_root: &Path, target_root: &Path, relative: &str) -> Result<()> {
     let source = source_root.join(relative);
     let target = target_root.join(relative);
@@ -151,6 +178,7 @@ fn copy_file(source_root: &Path, target_root: &Path, relative: &str) -> Result<(
     Ok(())
 }
 
+/// Recursively copies regular files from one directory to another.
 fn copy_dir(source: PathBuf, target: PathBuf) -> Result<()> {
     fs_err::create_dir_all(&target).with_context(|| format!("create {}", target.display()))?;
     for entry in fs_err::read_dir(&source).with_context(|| format!("read {}", source.display()))? {
@@ -174,6 +202,7 @@ fn copy_dir(source: PathBuf, target: PathBuf) -> Result<()> {
     Ok(())
 }
 
+/// Returns a coarse timestamp for human-readable staging directory names.
 fn timestamp_millis() -> Result<u128> {
     Ok(SystemTime::now()
         .duration_since(UNIX_EPOCH)
