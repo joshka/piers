@@ -7,6 +7,11 @@ invent their own harness model.
 
 The core should expose one command and event API. Interfaces are clients.
 
+The current kernel exposes this boundary as `HarnessCommand` and
+`HarnessEvent` in `src/harness.rs`. The non-TUI app layer in `src/app.rs`
+parses REPL, print, and JSON-mode input into typed commands; it does not call
+reload, tool, or session internals directly.
+
 ## Core Responsibilities
 
 The core owns:
@@ -43,6 +48,10 @@ write durable session state directly.
 
 Initial command categories:
 
+- `user_input`
+- `evolve`
+- `reload`
+- `status`
 - `submit_user_message`
 - `request_tool_approval`
 - `abort_current_turn`
@@ -60,6 +69,15 @@ diagnostics. Long-running work should emit events.
 
 Initial event categories:
 
+- `turn_started`
+- `user_message_recorded`
+- `assistant_message`
+- `tool_call_requested`
+- `tool_result_recorded`
+- `reload_started`
+- `reload_promoted`
+- `reload_failed`
+- `turn_completed`
 - session entry appended
 - provider event normalized
 - tool event emitted
@@ -74,12 +92,17 @@ UI hints can exist, but they should not be the only record of important state.
 ## JSON And RPC
 
 JSON mode and RPC are useful because they force the event model to be explicit.
+Piers now has a small JSON print mode over `HarnessEvent` and a JSONL RPC mode
+that reads command envelopes from stdin and writes event/result/error envelopes
+to stdout.
 
 Rules:
 
 - every event has a schema version
-- every event has a stable ID
+- every event has a stable request ID and request-local sequence
 - every event has provenance
+- every error has a stable code
+- every command exposed to tools has an input schema and mutation flags
 - partial events are marked partial
 - terminal events are explicit
 - shutdown and retry states are visible
@@ -113,6 +136,16 @@ Worker-loop mode is useful for embedding:
 
 This shape supports subagents and remote clients without making the harness a
 terminal application first.
+
+The current `--mode rpc` implementation is the first worker loop. It supports
+`user_input`, `status`, `provider_status`, `manifest`, `list_sessions`,
+`session_entries`, `switch_session`, `abort`, `reload`, `evolve`, and `quit`
+requests over JSONL. Callers can pass `--session <path>` before or after the
+mode flag to choose the initial append-only session log backing the worker,
+then use `switch_session` to change sessions without restarting. Callers can
+pass `--read-only` to reject source-mutating `reload` and `evolve` commands
+before the harness runs them, or `--require-approval` to require
+`approved: true` on each mutating RPC request.
 
 ## Browser Or GUI Clients
 

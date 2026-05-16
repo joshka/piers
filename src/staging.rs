@@ -74,16 +74,46 @@ impl StagedGuest {
 
 /// Ensures that the live guest artifact exists before the harness starts.
 pub fn ensure_guest_artifact(root: &Path) -> Result<()> {
-    if root.join(GUEST_ARTIFACT).exists() {
+    if guest_artifact_is_current(root)? {
         return Ok(());
     }
     build_guest_in(root)
 }
 
+fn guest_artifact_is_current(root: &Path) -> Result<bool> {
+    let artifact = root.join(GUEST_ARTIFACT);
+    if !artifact.exists() {
+        return Ok(false);
+    }
+
+    let artifact_modified = fs_err::metadata(&artifact)
+        .with_context(|| format!("stat {}", artifact.display()))?
+        .modified()
+        .with_context(|| format!("read mtime for {}", artifact.display()))?;
+    for relative in [
+        GUEST_SOURCE,
+        "guest/Cargo.toml",
+        "Cargo.toml",
+        "Cargo.lock",
+        "wit/piers.wit",
+    ] {
+        let input = root.join(relative);
+        let input_modified = fs_err::metadata(&input)
+            .with_context(|| format!("stat {}", input.display()))?
+            .modified()
+            .with_context(|| format!("read mtime for {}", input.display()))?;
+        if input_modified > artifact_modified {
+            return Ok(false);
+        }
+    }
+
+    Ok(true)
+}
+
 /// Builds the guest crate in the provided workspace root.
 ///
 /// This shells out to Cargo rather than linking through Cargo internals. That
-/// keeps the PoC small and makes the build contract visible in error messages.
+/// keeps the kernel direct and makes the build contract visible in error messages.
 pub fn build_guest_in(root: &Path) -> Result<()> {
     info!(root = %root.display(), "building guest");
     let output = Command::new("cargo")

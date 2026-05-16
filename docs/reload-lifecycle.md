@@ -1,25 +1,29 @@
 # Reload Lifecycle
 
-The current PoC proves the reload loop, but it writes generated code directly
-to `guest/src/lib.rs`. That is acceptable for the first demonstration and too
-fragile for the next version.
+The current kernel proves a transactional reload loop: generated code is staged,
+built, smoke-tested, and only then promoted over `guest/src/lib.rs`.
 
-The next design should make reload transactional.
+The next design should keep making reload more auditable and typed.
 
 ## Current Flow
 
 The current `:evolve` flow is:
 
 1. Ask the running guest to generate replacement Rust source.
-1. Write that source to `guest/src/lib.rs`.
-1. Run `cargo build -p piers-guest --target wasm32-wasip2`.
-1. Instantiate the new component.
-1. Restore the old guest snapshot into the new guest.
+1. Record a `reload_proposed` session entry with the spec and source digest.
+1. Write that source into `.piers/staged`.
+1. Run `cargo build -p piers-guest --target wasm32-wasip2` in the staging
+   workspace.
+1. Capture and record a versioned guest snapshot.
+1. Instantiate the staged component and restore the old guest snapshot into it.
+1. Run a smoke `handle-event` call against the staged component.
+1. Promote the staged source and artifact.
 1. Swap the new guest into the host.
+1. Record `reload_promoted` with the source digest and artifact path.
 
-If the build fails, the running guest can still handle requests, but the source
-tree can be left broken. That is the wrong failure mode for a self-rewriting
-harness.
+If staging, build, manifest validation, restore, smoke testing, or promotion
+fails, the old guest keeps running and the host records `reload_failed` with
+the failed stage and diagnostic message.
 
 ## Transactional Flow
 
@@ -82,3 +86,23 @@ Reload should be visible in the session log. Minimum entries:
 
 This gives future Piers enough history to answer why a self-change happened
 and how it was accepted.
+
+The current implementation stores the first slice of this model in
+`.piers/sessions/default.jsonl`:
+
+- `reload_proposed`
+- `guest_snapshot`
+- `reload_failed`
+- `reload_promoted`
+
+The log uses monotonic entry IDs, parent links, timestamps, and schema version
+`1`. The reducer rejects a reload promotion unless a matching proposal and
+nonzero-version guest snapshot have already been recorded.
+
+The host also calls `manifest()` during load and reload acceptance. The current
+manifest validator requires schema version `1` and a nonempty guest name.
+
+Ordinary user input now reaches the guest as a typed `host-event.user-input`.
+The guest returns typed `guest-event` values, and the host records assistant
+messages, diagnostics, tool-call requests, and source-update proposals as
+session entries.

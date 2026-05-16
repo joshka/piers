@@ -1,9 +1,93 @@
 package piers:harness;
 
+/// Shared host/guest protocol types.
+interface protocol {
+    /// Stable metadata exposed by a guest generation.
+    record guest-manifest {
+        /// Manifest schema version understood by the host.
+        version: string,
+
+        /// Human-readable guest generation name.
+        name: string,
+
+        /// Host capabilities requested by this guest generation.
+        capabilities: list<string>,
+
+        /// Commands proposed by this guest generation.
+        commands: list<command-decl>,
+    }
+
+    /// Command declaration proposed by the guest manifest.
+    record command-decl {
+        /// Stable command name, without UI-specific prefix syntax.
+        name: string,
+
+        /// Human-readable command description.
+        description: string,
+    }
+
+    /// Host event delivered to reloadable guest behavior.
+    variant host-event {
+        /// Ordinary user input from a host-owned session.
+        user-input(string),
+
+        /// Result of a host-owned tool call.
+        tool-result(tool-result-event),
+
+        /// Notification that a reload was accepted by the host.
+        reload-accepted(reload-event),
+    }
+
+    /// Tool result event delivered by the host.
+    record tool-result-event {
+        call-id: string,
+        output-json: string,
+        success: bool,
+    }
+
+    /// Reload acceptance event delivered by the host.
+    record reload-event {
+        generation: u64,
+    }
+
+    /// Guest event emitted for host validation and persistence.
+    variant guest-event {
+        /// Assistant text proposed by the guest.
+        assistant-message(string),
+
+        /// Host-owned tool request proposed by the guest.
+        tool-call(tool-call-request),
+
+        /// Diagnostic emitted by the guest.
+        diagnostic(diagnostic-event),
+
+        /// Replacement Rust source proposed by the guest.
+        propose-source-update(string),
+    }
+
+    /// Host-owned tool request proposed by the guest.
+    record tool-call-request {
+        call-id: string,
+        tool-name: string,
+        input-json: string,
+    }
+
+    /// Guest diagnostic event.
+    record diagnostic-event {
+        level: string,
+        message: string,
+    }
+}
+
 /// Reloadable behavior hosted by the native Piers harness.
 world guest {
-    /// Handle ordinary user input.
-    export handle: func(input: string) -> string;
+    use protocol.{guest-manifest, host-event, guest-event};
+
+    /// Return the guest manifest.
+    export manifest: func() -> guest-manifest;
+
+    /// Handle one host event and emit guest events for host validation.
+    export handle-event: func(event: host-event) -> list<guest-event>;
 
     /// Return replacement Rust source for the guest.
     export propose-update: func(spec: string) -> string;

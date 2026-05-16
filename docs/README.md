@@ -3,9 +3,11 @@
 This directory holds design notes for the Rust-first coding agent harness
 experiment.
 
-## Current PoC
+## Current Kernel
 
 - [How Piers Works](how-it-works.md)
+- [Implementation Handoff](implementation-handoff.md)
+- [Pi-Shaped Kernel Audit](pi-shaped-kernel-audit.md)
 - [Options Considered](options-considered.md)
 
 ## Lessons From Pi

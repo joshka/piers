@@ -18,6 +18,11 @@ The protocol should:
 - make replay compatibility explicit
 - keep guest code away from wire-format compatibility
 
+The current Rust kernel has a host-owned reducer in `src/provider.rs` and an
+RPC bridge named `provider_stream`. It is not a network adapter yet; it is the
+contract real adapters and fake providers must satisfy before their output can
+become a durable assistant turn.
+
 ## Event Shape
 
 Initial event categories:
@@ -46,6 +51,47 @@ Every provider stream must end with exactly one terminal event:
 
 An incomplete stream is not success. It may be retryable, but it should not be
 serialized as a valid assistant turn.
+
+Implemented reducer checks:
+
+- no stream event is accepted before `response_started`
+- no event is accepted after a terminal event
+- `finish()` rejects streams with no terminal event
+- successful streams require all text, thinking, and tool-call blocks to close
+- final tool-call arguments must parse as JSON
+- `stream_incomplete`, `response_failed`, and `response_aborted` are terminal
+  states, but they are not successful assistant turns
+
+## Harness Bridge
+
+`provider_stream` lets an adapter submit one normalized provider response to
+the same host-owned turn machinery used by ordinary prompts. `provider_script`
+runs several normalized responses as a deterministic provider/tool loop. The
+harness:
+
+- records `turn_started`, `user_message`, and `turn_completed`
+- persists assistant text as `assistant_message`
+- validates final tool-call JSON before execution
+- executes host tools and records `tool_call` / `tool_result`
+- records provider failure, abort, and incomplete stream terminals as
+  diagnostics and completes the turn with `success: false`
+
+`provider_script` sends tool results from one response back into the next
+scripted provider request and stops when the provider emits no more tool calls.
+`provider_prompt` uses the first network adapter, `openai_compatible`, to send
+non-streaming chat-completions requests and then normalize the response back
+into provider events. It retries transient HTTP statuses and transport
+failures with a bounded host-owned retry policy.
+`provider_script_start` and `provider_prompt_start` run those loops in a
+background worker thread. `job_status` polls the worker, and `abort` with a
+`job_id` flips the provider loop's cooperative cancellation token. Streaming
+transport remains future work, and cancellation cannot forcibly interrupt a
+blocking synchronous HTTP call once it is inside the transport.
+`provider_status` exposes those missing pieces as structured data instead of
+requiring callers to infer them from display text.
+It reads provider configuration from `PIERS_PROVIDER`, `PIERS_MODEL`,
+`PIERS_BASE_URL`, `PIERS_API_KEY`, and `PIERS_PROVIDER_TIMEOUT_MS`, but reports
+only whether an API key is present.
 
 ## Partial Tool Arguments
 

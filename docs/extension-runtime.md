@@ -42,6 +42,11 @@ An initial manifest should include:
 The manifest should be part of reload validation. If a new guest cannot produce
 a valid manifest, it should not be promoted.
 
+The current kernel implements the first manifest slice in WIT: guest
+generations declare capabilities and commands, and the host installs them into
+a `GuestRegistry` only after validating schema version, nonempty fields,
+duplicate names, and conflicts with built-in host commands.
+
 ## Provenance
 
 Every registered item should carry source metadata:

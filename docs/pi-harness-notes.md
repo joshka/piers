@@ -48,9 +48,11 @@ first. A better shape is:
 - stale guest handles become unusable after reload
 - generated code is staged and promoted after a successful build
 
-The current Piers PoC only rewrites `guest/src/lib.rs` directly. That proves
-the compile/reload loop, but a Pi-like harness should add a staging directory
-before expanding the rewrite surface.
+The current Piers kernel stages generated guest source before promotion, routes
+line input through a typed command/event core, and validates a first guest
+manifest slice for declared capabilities and commands. The next Pi-like
+extension step is expanding that registry to guest-declared tools, hooks, and
+resources.
 
 ## Minimal Core
 
@@ -81,6 +83,7 @@ Piers should eventually use the same underlying idea:
 
 - append-only session log
 - parent-linked entries
+- durable turn start and completion entries
 - explicit active leaf
 - model and thinking-level changes as entries
 - guest reloads as entries
@@ -104,6 +107,7 @@ Piers already has the lowest-level version of this:
 1. instantiate new guest
 1. restore snapshot
 1. swap guest handle
+1. record promotion and notify the new guest
 
 The next step is to make reload a first-class lifecycle event:
 
@@ -118,11 +122,13 @@ instantiated, validated, and restored.
 
 ## Proposed Next Architecture
 
-Turn the current PoC into a small harness with these pieces:
+Turn the current kernel into a fuller harness with these pieces:
 
-- `HostRuntime`: owns Wasmtime engine, current guest, and host capabilities.
-- `Session`: append-only JSONL tree with messages and reload events.
-- `TurnState`: immutable snapshot passed to one model request.
+- `Harness`: owns Wasmtime engine, current guest, core commands/events, and
+  host capabilities.
+- `Session`: append-only JSONL tree with turns, messages, tools, diagnostics,
+  and reload events.
+- `TurnSnapshot`: immutable host-owned facts captured for one user turn.
 - `GuestRegistry`: tools, commands, hooks, and resources exported by the guest.
 - `ReloadManager`: stages generated guest code, builds it, validates exports,
   restores state, and promotes only successful artifacts.
@@ -130,8 +136,8 @@ Turn the current PoC into a small harness with these pieces:
 The guest should eventually export something like:
 
 ```wit
-export manifest: func() -> string;
-export handle-event: func(event: string) -> string;
+export manifest: func() -> guest-manifest;
+export handle-event: func(event: host-event) -> list<guest-event>;
 export propose-update: func(spec: string) -> string;
 export snapshot: func() -> string;
 export restore: func(snapshot: string);

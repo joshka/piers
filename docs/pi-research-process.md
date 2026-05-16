@@ -22,7 +22,7 @@ The research pass used several kinds of source material:
 - local `../pi` source tree shape
 - historical `pi-mono` context
 - related Rust agent and assistant-harness repositories
-- the current Piers PoC and docs
+- the current Piers kernel and docs
 
 Each source answers a different question:
 

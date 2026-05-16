@@ -3,7 +3,7 @@
 This document turns the Pi history and related-project review into a concrete
 ownership model for Piers.
 
-The current PoC already has the right coarse shape:
+The current kernel already has the right coarse shape:
 
 - a stable native Rust host
 - a reloadable Rust guest compiled to a WebAssembly component
@@ -36,6 +36,12 @@ The host should treat guest output as a proposal. Generated source, tool
 manifests, provider hooks, context rewrites, and state migrations all need host
 validation before they become durable facts.
 
+The current host persists durable facts in `.piers/sessions/default.jsonl`.
+Reloadable guest code can produce assistant text or proposed source through WIT
+exports, but the host owns command routing, lifecycle phases, turn snapshots,
+session append, validation, staging, build, promotion, and artifact
+replacement.
+
 ## Guest Responsibilities
 
 The guest owns behavior that benefits from fast iteration and self-rewrite.
@@ -58,36 +64,43 @@ capabilities that the host can revoke, migrate, or rebind after reload.
 
 ## Boundary Shape
 
-The boundary should move from stringly exports toward versioned typed messages.
-A future WIT surface might separate commands, events, and manifests:
+The boundary separates typed host events from typed guest events. The current
+WIT surface includes:
 
 ```wit
 record guest-manifest {
     version: string,
+    name: string,
+    capabilities: list<string>,
     commands: list<command-decl>,
-    tools: list<tool-decl>,
-    hooks: list<hook-decl>,
 }
 
-variant host-command {
+variant host-event {
     user-input(string),
     tool-result(tool-result-event),
     reload-accepted(reload-event),
-    compact-request(compact-request),
 }
 
 variant guest-event {
     assistant-message(string),
     tool-call(tool-call-request),
-    propose-patch(source-patch),
-    propose-manifest(guest-manifest),
-    diagnostics(diagnostic-event),
+    diagnostic(diagnostic-event),
+    propose-source-update(string),
 }
 ```
 
-This does not need to be implemented immediately. The important direction is
-that host and guest exchange typed events, not arbitrary provider messages or
-host internals.
+The host routes ordinary user input through `handle-event` and persists guest
+events only after validating and translating them into host-owned session
+entries. Guest tool calls are executed by host-owned tools; the resulting
+structured `tool-result` host event is then delivered back to the guest so
+behavior can respond without owning filesystem or subprocess state. Reload
+source proposals and snapshots still use dedicated WIT exports; they remain
+host-validated and should eventually move into the same event protocol.
+
+The host also validates the guest manifest during load and promotion. The first
+registry slice accepts schema version `1`, requires nonempty names and
+descriptions, rejects duplicate capabilities and commands, and prevents guest
+commands from shadowing built-in host commands.
 
 ## Reload Contract
 
@@ -161,7 +174,9 @@ but durable session state should stay provider-neutral.
 ## Tool Contract
 
 Tools are host-owned capabilities. The guest may request tool calls only
-through declared, validated schemas.
+through declared, validated schemas. The host checks the active guest manifest
+for `tool:<name>` before executing any built-in tool request and returns a
+failed tool result for undeclared capabilities.
 
 Each tool call should have:
 

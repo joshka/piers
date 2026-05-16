@@ -1,14 +1,15 @@
 # Snapshot Format
 
 Snapshots are the state payloads that let a new guest instance continue after a
-reload. In the current PoC, the guest returns an opaque JSON-shaped string:
+reload. In the current kernel, the guest returns a small versioned JSON-shaped
+string:
 
 ```json
-{"calls":1}
+{"version":1,"calls":1}
 ```
 
-That proves the mechanism, but a serious harness needs versioned snapshots with
-validation, migration, and restore diagnostics.
+That proves the mechanism, but a serious harness still needs host-validated
+snapshot envelopes, migration, and restore diagnostics.
 
 ## Ownership
 

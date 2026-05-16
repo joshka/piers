@@ -55,7 +55,7 @@ Initial defaults should be boring:
 - plain text output in non-TTY mode
 - explicit shell selection in diagnostics
 
-This keeps the PoC focused on reload and replay instead of terminal edge
+This keeps the kernel focused on reload and replay instead of terminal edge
 cases.
 
 ## TUI Contract

@@ -62,6 +62,34 @@ Policies should be explicit about:
 
 The default for generated or guest-declared tools should be conservative.
 
+## Current Built-Ins
+
+The current host has four built-in tools behind `src/tools.rs`:
+
+- `read`: reads UTF-8 text from a workspace-relative path.
+- `write`: writes UTF-8 text to a workspace-relative path.
+- `edit`: replaces exactly one occurrence of `old` with `new`.
+- `exec`: runs an allowed program without a shell, with stdin closed and a
+  timeout.
+
+All file paths must be relative, must not contain parent-directory or absolute
+components, and must resolve under the workspace root. The default exec policy
+is disabled; tests exercise explicit allow-list and timeout behavior.
+
+Guest `tool-call` events are requests. The host records the `tool_call`, runs
+the built-in tool under policy, records a paired `tool_result`, and sends the
+same structured result back to the guest as a typed host event.
+
+Each built-in exposes host-owned metadata and a JSON input schema. The schemas
+are intentionally narrow: unknown fields are rejected by schema shape, and Rust
+deserialization enforces the concrete execution input.
+
+The active guest manifest gates tool execution. A guest must declare
+`tool:<name>` in its capabilities before the host will execute that built-in
+tool. The default guest currently declares only `tool:read`, so `write`,
+`edit`, and `exec` are host-available but not enabled for that guest
+generation.
+
 ## File Tools
 
 File tools need careful text and path semantics. The policy should distinguish:

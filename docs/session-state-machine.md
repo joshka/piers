@@ -13,6 +13,12 @@ reload, and debugging should all be derived from append-only session entries.
 The host owns the session log. Reloadable guests can request entries through
 host APIs, but they do not write the log directly.
 
+The current kernel writes append-only JSONL to `.piers/sessions/default.jsonl`
+by default. Non-TUI modes accept `--session <path>` so a caller can isolate a
+worker, test run, or tool invocation in its own session file.
+Each entry has a monotonic ID, parent ID, timestamp, schema version, and typed
+entry payload.
+
 ## Phases
 
 Initial phases:
@@ -47,6 +53,20 @@ Minimum entries for a coding harness:
 - `guest_snapshot`
 - `custom`
 
+Implemented entries in the current kernel:
+
+- `turn_started`
+- `turn_completed`
+- `user_message`
+- `assistant_message`
+- `tool_call`
+- `tool_result`
+- `reload_proposed`
+- `reload_failed`
+- `reload_promoted`
+- `guest_snapshot`
+- `diagnostic`
+
 Each entry should have:
 
 - stable id
@@ -65,6 +85,22 @@ The reducer should reject or quarantine invalid transitions:
 - no reload promotion without a validated build and restore
 - no provider replay that violates the target provider transcript grammar
 - no branch switch that loses the previous active leaf
+
+Implemented reducer checks:
+
+- entry IDs must be monotonic and parent-linked
+- schema versions must be supported
+- turns must not nest
+- turn completion must match the active turn
+- tool calls must be recorded inside an active turn
+- turns cannot complete while tool calls remain pending
+- tool results require a known pending tool call
+- duplicate pending tool call IDs are rejected
+- reload proposals cannot be recorded during an active turn
+- reload promotion requires a matching pending reload proposal
+- reload promotion requires a matching proposal and a guest snapshot recorded
+  after that proposal
+- guest snapshot format version must be nonzero
 
 Invalid history loaded from disk should not be silently replayed. The loader
 should produce diagnostics and a repair plan.

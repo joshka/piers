@@ -110,7 +110,7 @@ The same boundary keeps appearing:
 - UI and remote clients observe and command the host through a stable event
   stream
 
-That matches the current Piers PoC. The next step is not a bigger guest. The
+That matches the current Piers kernel. The next step is not a bigger guest. The
 next step is a stricter host contract around staged reload, session state, and
 provider normalization.
 

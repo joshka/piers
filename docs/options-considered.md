@@ -1,6 +1,6 @@
 # Options Considered
 
-This PoC uses a Rust host with a Rust guest compiled as a WebAssembly
+The current kernel uses a Rust host with a Rust guest compiled as a WebAssembly
 component. The goal is to make behavior reloadable while keeping the host
 stable enough to supervise rebuilds and recover from broken generated code.
 
@@ -36,7 +36,7 @@ for a tiny self-rewriting harness.
 
 ## Future Direction
 
-The first PoC only rewrites guest code. The architecture should later allow
+The current kernel only rewrites guest code. The architecture should later allow
 gated host patches: the guest or an agent can propose host changes, the host
 can show the patch, and a human approval step can rebuild and restart the
 harness. Direct host self-editing should wait until recovery, rollback, and
