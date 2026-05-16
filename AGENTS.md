@@ -15,6 +15,7 @@ under `docs/`; the copied reviewed rule pack is in `docs/development/rules/`.
 Run commands from the repository root:
 
 ```bash
+cargo +nightly fmt --all -- --check
 cargo run
 cargo build -p piers-guest --target wasm32-wasip2
 cargo check --workspace
@@ -26,6 +27,8 @@ markdownlint-cli2 "**/*.md"
 
 `cargo run` starts the REPL. Use `:evolve <spec>` to exercise staged guest
 reload and `:status` to inspect the current generation.
+When the local `justfile` is available, `just ci` runs the repo's aggregate
+formatting, check, test, clippy, rustdoc, and markdown validation.
 
 ## Coding Style & Naming Conventions
 
@@ -55,11 +58,30 @@ terminal or REPL behavior, include the manual smoke command or transcript.
 Keep GitHub issues and docs standalone enough for collaborators who did not see
 the original chat context.
 
+## Shared Development Preferences
+
+This repo carries a local copy of shared development guidance in
+`docs/development/`. Use this repo's local rules first. When local guidance is
+silent, use the shared guidance as a fallback.
+
+Entry points:
+
+- `docs/development/snippets/agents/rules.md`: compact reviewed rule pack.
+- `docs/development/rules/README.md`: rule domains for targeted loading.
+- `docs/development/bootstrap-downstream.md`: how to refresh and merge the
+  guidance.
+- [Software Practices](https://www.joshka.net/practice/): rendered reference
+  with deeper guide, rule, pattern, principle, mechanism, and tag context.
+
+If a shared rule causes friction or seems wrong for most Rust or agent work,
+capture that feedback for the upstream `development-preferences`/`practice`
+repo instead of only patching around it locally.
+
 ## Agent-Specific Instructions
 
 Use this file as the repo-local map. The reviewed rule pack is copied from the
-canonical `development-preferences` repo into `docs/development/rules/`;
-refresh it from that repo when the shared rule set changes.
+canonical `practice` template into `docs/development/`; refresh it with
+`python3 docs/development/update.py` when the shared rule set changes.
 
 Agents are expected to know about and use these repo-local guidance files when
 they match the task:
@@ -67,6 +89,11 @@ they match the task:
 - `AGENTS.override.md`: local checkout-specific overrides, including source
   control preferences.
 - `docs/development/README.md`: local map for development guidance.
+- `docs/development/bootstrap-downstream.md`: downstream bootstrap and refresh
+  process.
+- `docs/development/update.py`: helper that refreshes the copied guidance from
+  the canonical source.
+- `docs/development/snippets/agents/rules.md`: compact reviewed rule pack.
 - `docs/development/rules/README.md`: index of reviewed rule domains.
 - `docs/development/rules/agent-workflow.md`: agent workflow and handoff rules.
 - `docs/development/rules/boundary.md`: ownership, lifecycle, and boundary rules.
@@ -80,6 +107,7 @@ they match the task:
 - `docs/development/rules/source.md`: source and context hygiene rules.
 - `docs/development/rules/test-failures.md`: useful test-failure output rules.
 - `docs/development/rules/testing.md`: testing and verification rules.
+- `docs/development/rules/vcs.md`: jj topology and source-control rules.
 
 Preserve unowned human or agent work. Report concrete validation evidence in
 handoffs instead of confidence language.
