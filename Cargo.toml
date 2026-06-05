@@ -17,4 +17,4 @@ sha2 = "0.10.9"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 wasmtime = { version = "44.0.1", features = ["component-model"] }
-wasmtime-wasi = "44.0.1"
+wasmtime-wasi = "45.0.1"
