@@ -1,8 +1,16 @@
 package piers:harness;
 
+/// Reloadable behavior hosted by the native Piers harness.
 world guest {
+    /// Handle ordinary user input.
     export handle: func(input: string) -> string;
+
+    /// Return replacement Rust source for the guest.
     export propose-update: func(spec: string) -> string;
+
+    /// Serialize guest-owned state before a reload.
     export snapshot: func() -> string;
+
+    /// Restore guest-owned state after a reload.
     export restore: func(snapshot: string);
 }

@@ -1,4 +1,9 @@
 //! Host harness that owns guest lifecycle and reload promotion.
+//!
+//! The harness is the stable native side of the experiment. It owns the
+//! Wasmtime engine, the active guest instance, the guest state snapshot flow,
+//! and the rule that generated code must build and pass a smoke test before it
+//! replaces the live source and artifact.
 
 use std::path::PathBuf;
 
@@ -14,6 +19,11 @@ use crate::staging::{
 };
 
 /// Stable native host for the reloadable Piers guest component.
+///
+/// A `Harness` keeps host-owned runtime resources alive while guest behavior is
+/// rebuilt and replaced. The guest owns only state it can serialize through the
+/// WIT `snapshot` export, so reloads can move that state into a new component
+/// instance without preserving guest memory.
 pub struct Harness {
     root: PathBuf,
     engine: Engine,
@@ -25,6 +35,10 @@ pub struct Harness {
 
 impl Harness {
     /// Loads the current guest artifact and prepares the host runtime.
+    ///
+    /// If the artifact is missing, this builds `piers-guest` for the
+    /// `wasm32-wasip2` target in `root` before instantiating it. The initial
+    /// generation is `0`; later successful reloads increment it.
     pub fn load(root: PathBuf) -> Result<Self> {
         ensure_guest_artifact(&root)?;
 
@@ -47,6 +61,10 @@ impl Harness {
     }
 
     /// Sends ordinary user input to the active guest.
+    ///
+    /// This call can mutate guest-local state. The current PoC guest increments
+    /// a call counter, which lets reload tests verify that state handoff is
+    /// working.
     pub fn handle(&mut self, input: &str) -> Result<String> {
         debug!(
             generation = self.generation,
@@ -58,6 +76,11 @@ impl Harness {
     }
 
     /// Asks the active guest to generate replacement source and reloads it.
+    ///
+    /// The live source and artifact are not replaced until the generated source
+    /// has been staged, built, restored from the active snapshot, and smoke
+    /// tested. If any step fails, the active guest instance keeps running and
+    /// `last_rebuild` records the failure.
     pub fn evolve(&mut self, spec: &str) -> Result<()> {
         if spec.is_empty() {
             bail!("usage: :evolve <spec>");
@@ -80,6 +103,10 @@ impl Harness {
     }
 
     /// Reloads from the current live guest source and artifact.
+    ///
+    /// This is a rebuild of the checked-in guest source, not a generated-source
+    /// promotion. The current guest is snapshotted before the rebuild and the
+    /// snapshot is restored into a fresh instance from the rebuilt artifact.
     pub fn reload(&mut self) -> Result<()> {
         let snapshot = self.snapshot_active_guest()?;
 
@@ -98,7 +125,7 @@ impl Harness {
         Ok(())
     }
 
-    /// Human-readable host status for the line REPL.
+    /// Returns human-readable host status for the line REPL.
     pub fn status(&self) -> String {
         format!(
             "generation: {}\nartifact: {}\nlast rebuild: {}",
@@ -106,6 +133,11 @@ impl Harness {
         )
     }
 
+    /// Builds and promotes generated guest source as one reload attempt.
+    ///
+    /// Promotion is intentionally last. The staged artifact is instantiated
+    /// twice: once for smoke testing and once for the new live guest. That keeps
+    /// smoke-test mutations out of the promoted guest state.
     fn reload_from_source(&mut self, source: &str) -> Result<()> {
         let next_generation = self.generation + 1;
         let attempt = StagedGuest::create(&self.root, source, next_generation)?;
@@ -130,12 +162,14 @@ impl Harness {
         Ok(())
     }
 
+    /// Captures guest-owned state before a reload boundary is crossed.
     fn snapshot_active_guest(&mut self) -> Result<String> {
         self.guest
             .call_snapshot(&mut self.store)
             .map_err(|error| anyhow!("snapshot current guest: {error:#}"))
     }
 
+    /// Verifies that a staged guest can accept the current state and run once.
     fn smoke_test_staged_guest(&self, attempt: &StagedGuest, snapshot: &str) -> Result<()> {
         let (mut smoke_store, smoke_guest) = instantiate_artifact(&self.engine, &attempt.artifact)?;
         smoke_guest
