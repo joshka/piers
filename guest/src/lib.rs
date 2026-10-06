@@ -1,3 +1,10 @@
+//! Reloadable Rust guest used by the Piers host PoC.
+//!
+//! The guest deliberately keeps its state and rewrite surface tiny: a call
+//! counter plus one behavior string. That makes the host reload boundary easy
+//! to inspect while still proving that Rust code can generate replacement Rust
+//! code for itself.
+
 use std::cell::RefCell;
 
 wit_bindgen::generate!({
@@ -5,6 +12,7 @@ wit_bindgen::generate!({
     world: "guest",
 });
 
+/// Model-visible behavior string rewritten by `propose_update`.
 const BEHAVIOR: &str = "answer like a tiny rewritten Rust guest";
 
 thread_local! {
@@ -14,6 +22,7 @@ thread_local! {
 struct PiersGuest;
 
 impl Guest for PiersGuest {
+    /// Handles ordinary host input and increments guest-local state.
     fn handle(input: String) -> String {
         let calls = CALLS.with(|calls| {
             let mut calls = calls.borrow_mut();
@@ -23,15 +32,18 @@ impl Guest for PiersGuest {
         format!("{BEHAVIOR} | call #{calls}: {input}")
     }
 
+    /// Generates replacement guest source by rewriting the behavior constant.
     fn propose_update(spec: String) -> String {
         render_source(spec.trim())
     }
 
+    /// Serializes the guest-local call counter.
     fn snapshot() -> String {
         let calls = CALLS.with(|calls| *calls.borrow());
         format!(r#"{{"calls":{calls}}}"#)
     }
 
+    /// Restores the guest-local call counter from a previous snapshot.
     fn restore(snapshot: String) {
         if let Some(calls) = parse_calls(&snapshot) {
             CALLS.with(|state| *state.borrow_mut() = calls);
